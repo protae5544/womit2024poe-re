@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สร้าง qrcode กรุณา จ่าย ก่อนทำรายการ</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;700&display=swap');
+        
+        /* เก็บรูปแบบเดิมของเอกสาร */
+        .receipt-document {
+            font-family: 'Noto Sans Thai', 'TH Sarabun New', Times, serif !important;
+        }
+        
+        .ft10 { font-size: 17px; color: #000000; }
+        .ft11 { font-size: 23px; color: #000000; }
+        .ft12 { font-size: 20px; color: #000000; }
+        .ft13 { font-size: 20px; color: #000000; }
+        .ft14 { font-size: 12px; color: #000000; }
+        .ft15 { font-size: 12px; line-height: 17px; color: #000000; }
+        
+        /* Dark theme support */
+        .dark .bg-white { background-color: #1f2937; }
+        .dark .text-gray-900 { color: #f9fafb; }
+        .dark .border-gray-300 { border-color: #4b5563; }
+        
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            .receipt-document {
+                transform: scale(0.5);
+                transform-origin: top left;
+            }
+        }
+        
+        /* Loading animation */
+        .loading {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ข้อมูลตัวอย่าง
+        const initialData = [
+            {
+                "requestNumber": "WP-67-009630",
+                "englishName": "MISS EI YE PYAN",
+                "profileImage": "",
+                "thaiName": "นางสาวเอ ยี เปียน",
+                "age": "25",
+                "alienReferenceNumber": "2492100646840",
+                "personalID": "6682190049543",
+                "nationality": "เมียนมา",
+                "workPermitNumber": "WP-67-009630",
+                "birthDate": "15/03/1999",
+                "เลขที่บนขวาใบเสร็จ": "2100680001130",
+                "หมายเลขชำระเงิน": "IV680106/001176",
+                "employerName": "บริษัท ตัวอย่าง จำกัด",
+                "employerId": "0255565000295"
+            },
+            {
+                "requestNumber": "WP-67-009631",
+                "englishName": "MR. JOHN SMITH",
+                "profileImage": "",
+                "thaiName": "นายจอห์น สมิธ",
+                "age": "30",
+                "alienReferenceNumber": "2492100646841",
+                "personalID": "6682190049544",
+                "nationality": "อเมริกัน",
+                "workPermitNumber": "WP-67-009631",
+                "birthDate": "20/05/1994",
+                "เลขที่บนขวาใบเสร็จ": "2100680001131",
+                "หมายเลขชำระเงิน": "IV680106/001177",
+                "employerName": "Sample Company Ltd.",
+                "employerId": "0255565000296"
+            }
+        ];
+
+        // Component สำหรับใบเสร็จ
+        const ReceiptDocument = ({ worker, qrCodeDataUrl, currentDate, printDate }) => {
+            if (!worker) return null;
+
+            // สร้าง background SVG pattern
+            const bgPattern = `data:image/svg+xml;base64,${btoa(`
+                <svg width="892" height="1262" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="892" height="1262" fill="#ffffff"/>
+                    <rect x="50" y="50" width="792" height="1162" fill="none" stroke="#cccccc" stroke-width="2"/>
+                    <rect x="60" y="480" width="772" height="320" fill="none" stroke="#000000" stroke-width="1"/>
+                    <line x1="60" y1="520" x2="832" y2="520" stroke="#000000" stroke-width="1"/>
+                    <line x1="60" y1="560" x2="832" y2="560" stroke="#000000" stroke-width="1"/>
+                    <line x1="60" y1="600" x2="832" y2="600" stroke="#000000" stroke-width="1"/>
+                    <line x1="60" y1="640" x2="832" y2="640" stroke="#000000" stroke-width="1"/>
+                    <line x1="60" y1="680" x2="832" y2="680" stroke="#000000" stroke-width="1"/>
+                    <line x1="60" y1="720" x2="832" y2="720" stroke="#000000" stroke-width="1"/>
+                    <line x1="60" y1="760" x2="832" y2="760" stroke="#000000" stroke-width="1"/>
+                    <line x1="650" y1="480" x2="650" y2="800" stroke="#000000" stroke-width="1"/>
+                </svg>
+            `)}`;
+
+            return (
+                <div id="page1-div" style="position: relative; width: 892px; height: 1262px;">
+        <img width="892" height="1262" src="/static/bg.svg" alt="background image"/>
+        <p style="position: absolute; top: 148px; left: 86px; white-space: nowrap" class="ft10">กรมการจัดหางาน</p>
+        <p style="position: absolute; top: 171px; left: 88px; white-space: nowrap" class="ft10">กระทรวงแรงงาน</p>
+        <p style="position: absolute; top: 91px; left: 397px; white-space: nowrap" class="ft11"><b>ใบเสร็จรับเงิน</b></p>
+        <p style="position: absolute; top: 121px; left: 418px; white-space: nowrap" class="ft11"><b>ต้นฉบับ</b></p>
+        <p style="position: absolute; top: 61px; left: 597px; white-space: nowrap" class="ft10">เลขที่ {{เลขที่บนขวาใบเสร็จ}}</p>
+        <p style="position: absolute; top: 150px; left: 582px; white-space: nowrap" class="ft10">ที่ทำการ สำนักบริหารแรงงานต่างด้าว</p>
+        <p style="position: absolute; top: 189px; left: 601px; white-space: nowrap" class="ft10">วันที่ {{current_date}}</p>
+        <p style="position: absolute; top: 228px; left: 539px; white-space: nowrap" class="ft10">เลขที่ใบชำระเงิน {{หมายเลขชำระเงิน}}</p>
+        <p style="position: absolute; top: 272px; left: 60px; white-space: nowrap" class="ft10">เลขรับคำขอที่</p>
+        <p style="position: absolute; top: 272px; left: 184px; white-space: nowrap" class="ft10">{{requestNumber}}</p>
+        <p style="position: absolute; top: 311px; left: 60px; white-space: nowrap" class="ft10">ชื่อผู้ชำระเงิน</p>
+        <p style="position: absolute; top: 311px; left: 184px; white-space: nowrap" class="ft10">{{englishName}}</p>
+        <p style="position: absolute; top: 311px; left: 471px; white-space: nowrap" class="ft10">สัญชาติ {{nationality}}</p>
+        <p style="position: absolute; top: 356px; left: 60px; white-space: nowrap" class="ft10">เลขอ้างอิงคนต่างด้าว {{alienReferenceNumber}}</p>
+        <p style="position: absolute; top: 356px; left: 432px; white-space: nowrap" class="ft10">หมายเลขประจำตัวคนต่างด้าว {{personalID}}</p>
+        <p style="position: absolute; top: 400px; left: 60px; white-space: nowrap" class="ft10">ชื่อนายจ้าง / สถานประกอบการ {{employerName}}</p>
+        <p style="position: absolute; top: 439px; left: 60px; white-space: nowrap" class="ft10">เลขประจำตัวนายจ้าง</p>
+        <p style="position: absolute; top: 438px; left: 231px; white-space: nowrap" class="ft10">{{employerId}}</p>
+        <p style="position: absolute; top: 527px; left: 345px; white-space: nowrap" class="ft12"><b>รายการ</b></p>
+        <p style="position: absolute; top: 527px; left: 688px; white-space: nowrap" class="ft12"><b>จำนวนเงิน</b></p>
+        <p style="position: absolute; top: 573px; left: 118px; white-space: nowrap" class="ft13">1. ค่าธรรมเนียมในการยื่นคำขอ ฉบับละ 100 บาท</p>
+        <p style="position: absolute; top: 573px; left: 736px; white-space: nowrap" class="ft13">100.00</p>
+        <p style="position: absolute; top: 617px; left: 118px; white-space: nowrap" class="ft13">2. ค่าธรรมเนียมใบอนุญาตทำงาน</p>
+        <p style="position: absolute; top: 617px; left: 736px; white-space: nowrap" class="ft13">900.00</p>
+        <p style="position: absolute; top: 695px; left: 97px; white-space: nowrap" class="ft13"></p>
+        <p style="position: absolute; top: 695px; left: 648px; white-space: nowrap" class="ft13"></p>
+        <p style="position: absolute; top: 773px; left: 174px; white-space: nowrap" class="ft12"><b>รวมเป็นเงินทั้งสิ้น (บาท)</b></p>
+        <p style="position: absolute; top: 800px; left: 188px; white-space: nowrap" class="ft12"><b>( หนึ่งพันบาทถ้วน )</b></p>
+        <p style="position: absolute; top: 787px; left: 385px; white-space: nowrap" class="ft13"></p>
+        <p style="position: absolute; top: 776px; left: 722px; white-space: nowrap" class="ft12"><b>1,000.00</b></p>
+        <p style="position: absolute; top: 895px; left: 93px; white-space: nowrap" class="ft10">ได้รับเงินไว้เป็นการถูกต้องแล้ว</p>
+        <p style="position: absolute; top: 979px; left: 481px; white-space: nowrap" class="ft10">(ลงชื่อ)</p>
+        <p style="position: absolute; top: 978px; left: 564px; white-space: nowrap" class="ft10">นางสาวอารีวรรณ โพธิ์นิ่มแดง</p>
+        <p style="position: absolute; top: 979px; left: 762px; white-space: nowrap" class="ft10">(ผู้รับเงิน)</p>
+        <p style="position: absolute; top: 1018px; left: 473px; white-space: nowrap" class="ft10">ตำแหน่ง</p>
+        <p style="position: absolute; top: 1017px; left: 562px; white-space: nowrap" class="ft10">นักวิชาการแรงงานชำนาญการ</p>
+        <div style="position: absolute; top: 1050px; left: 396px; width: 100px; height: 100px;">
+            <img src="{{qr_code}}" style="width: 100px; height: 100px;" />
+        </div>
+        <p style="position: absolute; top: 1135px; left: 55px; white-space: nowrap" class="ft15">เอกสารอิเล็กทรอนิกส์ฉบับนี้ถูกสร้างจากระบบอนุญาตทำงานคนต่างด้าวที่มีสถานะการทำงานไม่ถูกต้องตามกฎหมาย ตามมติคณะรัฐมนตรีเมื่อวันที่ 24 กันยายน 2567<br/>โดยกรมการจัดหางาน กระทรวงแรงงาน</p>
+        <p style="position: absolute; top: 1178px; left: 55px; white-space: nowrap" class="ft14">พิมพ์เอกสาร วันที่ {{print_date}}</p>
+    </div>
+            );
+        };
+
+        // Main App Component
+        const ReceiptApp = () => {
+            const [workerData, setWorkerData] = useState(initialData);
+            const [selectedWorker, setSelectedWorker] = useState(null);
+            const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [isDarkMode, setIsDarkMode] = useState(false);
+            const [currentDate, setCurrentDate] = useState('');
+            const [printDate, setPrintDate] = useState('');
+            const receiptRef = useRef(null);
+
+            // เตรียม temporary storage สำหรับไฟล์ PDF
+            const [pdfStorage, setPdfStorage] = useState(new Map());
+
+            useEffect(() => {
+                updateDates();
+            }, []);
+
+            const updateDates = () => {
+                const today = new Date();
+                const day = String(today.getDate()).padStart(2, '0');
+                const month = today.getMonth();
+                const year = today.getFullYear() + 543;
+                const hours = String(today.getHours()).padStart(2, '0');
+                const minutes = String(today.getMinutes()).padStart(2, '0');
+                
+                const thaiMonths = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                                   'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+                
+                setCurrentDate(`${day} ${thaiMonths[month]} ${year}`);
+                setPrintDate(`${day}/${String(month + 1).padStart(2, '0')}/${String(year).slice(-2)} ${hours}:${minutes} น.`);
+            };
+
+            const generateQRCode = async (worker) => {
+                const qrData = `Receipt: ${worker.เลขที่บนขวาใบเสร็จ}\nName: ${worker.englishName}\nRequest: ${worker.requestNumber}\nDownload: ${window.location.origin}/download-pdf/${worker.requestNumber}`;
+                
+                try {
+                    const qrDataUrl = await QRCode.toDataURL(qrData, {
+                        width: 100,
+                        margin: 1,
+                        color: {
+                            dark: '#000000',
+                            light: '#FFFFFF'
+                        }
+                    });
+                    return qrDataUrl;
+                } catch (error) {
+                    console.error('Error generating QR code:', error);
+                    return '';
+                }
+            };
+
+            const generatePDF = async (worker, qrDataUrl) => {
+                setIsGenerating(true);
+                
+                try {
+                    // รอให้ DOM render เสร็จ
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    const canvas = await html2canvas(receiptRef.current, {
+                        scale: 2,
+                        useCORS: true,
+                        logging: false,
+                        width: 892,
+                        height: 1262
+                    });
+                    
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF({
+                        orientation: 'portrait',
+                        unit: 'px',
+                        format: [892, 1262]
+                    });
+                    
+                    pdf.addImage(imgData, 'PNG', 0, 0, 892, 1262);
+                    
+                    // เก็บ PDF ในหน่วยความจำชั่วคราว
+                    const pdfBlob = pdf.output('blob');
+                    const pdfUrl = URL.createObjectURL(pdfBlob);
+                    
+                    // เก็บใน temporary storage
+                    const newStorage = new Map(pdfStorage);
+                    newStorage.set(worker.requestNumber, {
+                        url: pdfUrl,
+                        blob: pdfBlob,
+                        timestamp: Date.now(),
+                        filename: `receipt_${worker.requestNumber}.pdf`
+                    });
+                    setPdfStorage(newStorage);
+                    
+                    return pdfUrl;
+                } catch (error) {
+                    console.error('Error generating PDF:', error);
+                    alert('เกิดข้อผิดพลาดในการสร้าง PDF');
+                    return null;
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+
+            const handleWorkerSelect = async (worker) => {
+                setSelectedWorker(worker);
+                const qrDataUrl = await generateQRCode(worker);
+                setQrCodeDataUrl(qrDataUrl);
+            };
+
+            const handleGeneratePDF = async () => {
+                if (!selectedWorker) return;
+                
+                const pdfUrl = await generatePDF(selectedWorker, qrCodeDataUrl);
+                if (pdfUrl) {
+                    // ดาวน์โหลดไฟล์ทันที
+                    const link = document.createElement('a');
+                    link.href = pdfUrl;
+                    link.download = `receipt_${selectedWorker.requestNumber}.pdf`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            };
+
+            const handleUploadJSON = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (Array.isArray(data)) {
+                            setWorkerData(data);
+                            alert(`อัปโหลดข้อมูลสำเร็จ ${data.length} รายการ`);
+                        } else {
+                            alert('ไฟล์ JSON ต้องเป็น array ของ objects');
+                        }
+                    } catch (error) {
+                        alert('ไฟล์ JSON มีรูปแบบไม่ถูกต้อง');
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            };
+
+            const handleDownloadJSON = () => {
+                const dataStr = JSON.stringify(workerData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'worker_data.json';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            };
+
+            const handleResetData = () => {
+                if (confirm('คุณต้องการรีเซ็ตข้อมูลกลับเป็นค่าเริ่มต้นหรือไม่?')) {
+                    setWorkerData(initialData);
+                    setSelectedWorker(null);
+                    setQrCodeDataUrl('');
+                    alert('รีเซ็ตข้อมูลสำเร็จ');
+                }
+            };
+
+            // สำหรับ Netlify Functions
+            const handleGenerateQRForDownload = async (worker) => {
+                const qrData = `${window.location.origin}/api/download-pdf/${worker.requestNumber}`;
+                return await generateQRCode({ ...worker, downloadUrl: qrData });
+            };
+
+            return (
+                <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+                    {/* Header */}
+                    <header className="bg-blue-600 dark:bg-blue-800 text-white shadow-lg">
+                        <div className="container mx-auto px-4 py-6">
+                            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <h1 className="text-2xl sm:text-3xl font-bold">ระบบสร้างลายน้ำ</h1>
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => setIsDarkMode(!isDarkMode)}
+                                        className="p-2 rounded-lg bg-blue-700 hover:bg-blue-800 transition-colors"
+                                        aria-label="Toggle dark mode"
+                                    >
+                                        {isDarkMode ? '☀️' : '🌙'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="container mx-auto px-4 py-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            {/* Control Panel */}
+                            <div className="lg:col-span-1 space-y-6">
+                                {/* Data Management */}
+                                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                                    <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">จัดการข้อมูล</h3>
+                                    <div className="space-y-3">
+                                        <label className="block">
+                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">อัปโหลด JSON</span>
+                                            <input
+                                                type="file"
+                                                accept=".json"
+                                                onChange={handleUploadJSON}
+                                                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                            />
+                                        </label>
+                                        <button
+                                            onClick={handleDownloadJSON}
+                                            className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                        >
+                                            ดาวน์โหลด JSON
+                                        </button>
+                                        <button
+                                            onClick={handleResetData}
+                                            className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                        >
+                                            รีเซ็ตข้อมูล
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Worker List */}
+                                <div className="bg-white dark:bg-blue-800 rounded-lg shadow-md p-6">
+                                    <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">qrCodeที่คุณจ่ายแล้ว ({workerData.length} ชิ้น)</h3>
+                                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                                        {workerData.map((worker, index) => (
+                                            <button
+                                                key={index}
+                                                onClick={() => handleWorkerSelect(worker)}
+                                                className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                                                    selectedWorker?.requestNumber === worker.requestNumber
+                                                        ? 'bg-blue-50 border-blue-300 dark:bg-blue-900 dark:border-blue-600'
+                                                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600'
+                                                }`}
+                                            >
+                                                <div className="text-sm font-medium text-gray-900 dark:text-white">{worker.englishName}</div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">{worker.requestNumber}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* PDF Generation */}
+                                {selectedWorker && (
+                                    <div className="bg-black dark:bg-gray-800 rounded-lg shadow-md p-6">
+                                        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">สร้าง PDF</h3>
+                                        <button
+                                            onClick={handleGeneratePDF}
+                                            disabled={isGenerating}
+                                            className={`w-full px-4 py-3 rounded-lg text-white font-medium transition-all ${
+                                                isGenerating
+                                                    ? 'bg-gray-400 cursor-not-allowed loading'
+                                                    : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg'
+                                            }`}
+                                        >
+                                            {isGenerating ? 'กำลังสร้าง PDF...' : 'สร้างและดาวน์โหลด PDF'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Receipt Preview */}
+                            <div className="lg:col-span-2">
+                                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                                    <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">ตัวอย่างลายผีเสื้อ</h3>
+                                    {selectedWorker ? (
+                                        <div className="overflow-auto border border-gray-300 dark:border-gray-600 rounded-lg" style={{maxHeight: '800px'}}>
+                                            <div ref={receiptRef} className="bg-white">
+                                                <ReceiptDocument
+                                                    worker={selectedWorker}
+                                                    qrCodeDataUrl={qrCodeDataUrl}
+                                                    currentDate={currentDate}
+                                                    printDate={printDate}
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                                            <div className="text-6xl mb-4">📄</div>
+                                            <p>เลือกลายม้าลาย</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <footer className="bg-gray-800 text-white py-6 mt-12">
+                        <div className="container mx-auto px-4 text-center">
+                            <p>&copy; เครื่องทำqrCode เองที่บ้าน </p>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<ReceiptApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
