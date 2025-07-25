@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบจัดการใบเสร็จ</title>
+  <style>
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+    }
+
+    body {
+      font-family: 'TH Sarabun New', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    h1 {
+      background: linear-gradient(45deg, #2c3e50, #3498db);
+      color: white;
+      padding: 25px;
+      text-align: center;
+      margin: 0;
+    }
+
+    .controls {
+      padding: 25px;
+      background: #ecf0f1;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    label {
+      font-weight: bold;
+      color: #2c3e50;
+    }
+
+    select, button {
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    select {
+      border: 2px solid #3498db;
+      min-width: 250px;
+      background: white;
+    }
+
+    button {
+      border: none;
+      background: #3498db;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2980b9;
+    }
+
+    .preview-container {
+      padding: 25px;
+      height: 800px;
+      background: white;
+    }
+
+    #loading {
+      text-align: center;
+      padding: 50px;
+      color: #7f8c8d;
+      font-size: 18px;
+    }
+
+    #receiptFrame {
+      width: 100%;
+      height: 100%;
+      border: 2px solid #bdc3c7;
+      border-radius: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      select, button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ระบบจัดการใบเสร็จรับเงิน</h1>
+    
+    <div class="controls">
+      <label for="receiptSelector">เลือกรายการ:</label>
+      <select id="receiptSelector">
+        <option value="">กำลังโหลดข้อมูล...</option>
+      </select>
+      <button onclick="viewReceipt()">ดูใบเสร็จ</button>
+      <button onclick="downloadAll()">ดาวน์โหลดทั้งหมด</button>
+    </div>
+    
+    <div class="preview-container">
+      <div id="loading">กำลังโหลดข้อมูล...</div>
+      <iframe id="receiptFrame" style="display:none;"></iframe>
+    </div>
+  </div>
+  
+  <script>
+    let receipts = [];
+
+    // โหลดข้อมูล JSON
+    async function loadReceipts() {
+      try {
+        const response = await fetch('./data.json');
+        if (!response.ok) throw new Error('ไม่สามารถโหลดข้อมูลได้');
+        receipts = await response.json();
+        
+        const selector = document.getElementById('receiptSelector');
+        const loading = document.getElementById('loading');
+        
+        selector.innerHTML = '';
+        loading.style.display = 'none';
+        document.getElementById('receiptFrame').style.display = 'block';
+        
+        if (receipts.length === 0) {
+          selector.innerHTML = '<option value="">ไม่มีข้อมูล</option>';
+          return;
+        }
+        
+        receipts.forEach((receipt, index) => {
+          const option = document.createElement('option');
+          option.value = index;
+          option.text = receipt.requestNumber || `รายการที่ ${index + 1}`;
+          selector.appendChild(option);
+        });
+        
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('receiptSelector').innerHTML = '<option value="">เกิดข้อผิดพลาดในการโหลดข้อมูล</option>';
+        document.getElementById('loading').innerHTML = 'เกิดข้อผิดพลาด: ' + error.message;
+      }
+    }
+
+    // ดูใบเสร็จ (เปิด PDF ในแท็บใหม่)
+    function viewReceipt() {
+      const selector = document.getElementById('receiptSelector');
+      const index = selector.value;
+      
+      if (index === '' || !receipts[index]) {
+        alert('กรุณาเลือกข้อมูล');
+        return;
+      }
+      
+      const receiptId = receipts[index].requestNumber;
+      window.open(`/api/generate-pdf?id=${receiptId}`, '_blank');
+    }
+
+    // ดาวน์โหลดทั้งหมด
+    function downloadAll() {
+      if (receipts.length === 0) {
+        alert('ไม่มีข้อมูลให้ดาวน์โหลด');
+        return;
+      }
+      
+      receipts.forEach((receipt, i) => {
+        const receiptId = receipt.requestNumber;
+        setTimeout(() => {
+          const link = document.createElement('a');
+          link.href = `/api/generate-pdf?id=${receiptId}`;
+          link.download = `receipt-${receiptId}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }, i * 1000);
+      });
+    }
+
+    // เริ่มทำงานเมื่อหน้าเว็บโหลด
+    document.addEventListener('DOMContentLoaded', function() {
+      loadReceipts();
+    });
+  </script>
+</body>
+</html>
